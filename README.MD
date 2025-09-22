@@ -1,1 +1,4 @@
-# Football predictor v2
+# Prem-watch.com
+
+**A football prediction web app, built in Python**
+
