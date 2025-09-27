@@ -2,6 +2,7 @@
 import sqlite3
 import json
 
+
 class SQLiteLoader:
     """
     A class to dynamically load dictionary data from an API into an SQLite database.

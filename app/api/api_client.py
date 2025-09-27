@@ -40,7 +40,7 @@ class ApiClient:
             params (dict, optional): Query parameters for the request.
         """
 
-        # Add a small delay to avoid hitting rate limits of 1800/hour
+        # Add a delay to avoid hitting rate limits of 1800/hour
         time.sleep(2)
 
         url = f"{self.base_url}/{endpoint}"
@@ -55,7 +55,7 @@ class ApiClient:
             print(f"Request error occurred: {err}")
         return None
 
-    def get_leagues(self, country_id=None, chosen_only=False) -> dict:
+    def get_leagues(self, country_id=None, chosen_only=True) -> dict:
         """Fetches the list of leagues from the football data API.
         Parameters:
             country_id (int, optional): Filter leagues by country ID
