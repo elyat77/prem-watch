@@ -14,7 +14,7 @@ class ApiClient:
             filtered by country ID.
     """
 
-    def __init__(self, api_key):
+    def __init__(self, api_key: str) -> None:
         """
         Parameters:
             api_key (str): The API key for authenticating requests.
@@ -31,7 +31,7 @@ class ApiClient:
             "Content-Type": "application/json"
         })
 
-    def _make_request(self, method, endpoint, params=None):
+    def _make_request(self, method: str, endpoint: str, params: dict = None) -> dict:
         """Private helper method to construct and make API requests.
 
         Parameters:
@@ -86,7 +86,7 @@ class ApiClient:
 
     def get_matches(self, date=None) -> dict:
         """Fetches up to a maximum of 200 matches on the given day. Only works
-        for selected matches. If no date is provided, fetches today's matches.
+        for selected leagues. If no date is provided, fetches today's matches.
 
         Parameters:
             date (str, optional): Date in the format 'YYYY-MM-DD'. Defaults to
@@ -97,7 +97,6 @@ class ApiClient:
                 selected day.
         """
 
-        # TODO: Why does this only return Mexican league matches?
         params = {
             "timezone": "Europe/London"
         }

@@ -71,7 +71,7 @@ def update_countries(client: ApiClient, loader: SQLiteLoader):
         print(f"An error occurred during countries update: {e}")
 
 
-def update_fixtures(client: ApiClient, loader: SQLiteLoader):
+def todays_fixtures(client: ApiClient, loader: SQLiteLoader):
     """Fetches today's fixtures and loads them to the database."""
     print("\n--- Updating Today's Fixtures ---")
     try:
