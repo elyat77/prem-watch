@@ -7,11 +7,40 @@ class ApiClient:
     """Client for interacting with the football data API.
 
     Attributes:
-        base_url (str): The base URL for the API.
+        api_key (str): The API key for authenticating requests.
+        base_url (str): The base URL for the football data API.
 
     Methods:
         get_leagues(country_id=None): Fetches the list of leagues, optionally
             filtered by country ID.
+        get_countries(): Fetches the list of countries and their ISO numbers.
+        get_matches(date=None): Fetches matches for a specific date or today's
+            matches if no date is provided.
+        get_league_stats(season_id, max_time=None): Fetches league statistics
+            for a given season, optionally up to a specified time.
+        get_schedule(season_id, max_time=None): Fetches the schedule/results
+            for a given league season, optionally up to a specified time.
+        get_league_teams(season_id, stats=False, max_time=None): Fetches the
+            teams for a given league season, with an option for detailed stats.
+        get_league_players(season_id, max_time=None): Fetches the players for
+            a given league season, optionally up to a specified time.
+        get_league_referees(season_id, max_time=None): Fetches the referees
+            for a given league season, optionally up to a specified time.
+        get_team_data(team_id): Fetches detailed data for a given team.
+        get_team_recent_form(team_id): Fetches the last 5, 6, and 10 match stats
+            for a given team.
+        get_match_details(match_id): Fetches detailed data and trends for a
+            single match.
+        get_league_table(season_id, max_time=None): Fetches the league table
+            for a given league season, optionally up to a specified time.
+        get_player_stats(player_id): Fetches detailed stats for a given player
+            across all seasons and leagues.
+        get_referee_stats(referee_id): Fetches detailed stats for a given
+            referee across all seasons and leagues.
+        get_btts_stats(): Fetches data on the best BTTS leagues, teams, and
+            fixtures.
+        get_over_25_stats(): Fetches data on the best Over 2.5 leagues, teams,
+            and fixtures.
     """
 
     def __init__(self, api_key: str) -> None:
@@ -31,7 +60,8 @@ class ApiClient:
             "Content-Type": "application/json"
         })
 
-    def _make_request(self, method: str, endpoint: str, params: dict = None) -> dict:
+    def _make_request(self, method: str, endpoint: str,
+                      params: dict = None) -> dict:
         """Private helper method to construct and make API requests.
 
         Parameters:
@@ -55,7 +85,8 @@ class ApiClient:
             print(f"Request error occurred: {err}")
         return None
 
-    def get_leagues(self, country_id=None, chosen_only=True) -> dict:
+    def get_leagues(self, country_id: int = None,
+                    chosen_only: bool = True) -> dict:
         """Fetches the list of leagues from the football data API.
         Parameters:
             country_id (int, optional): Filter leagues by country ID
@@ -84,7 +115,7 @@ class ApiClient:
 
         return self._make_request("GET", "country-list")
 
-    def get_matches(self, date=None) -> dict:
+    def get_matches(self, date: str = None) -> dict:
         """Fetches up to a maximum of 200 matches on the given day. Only works
         for selected leagues. If no date is provided, fetches today's matches.
 
@@ -104,7 +135,8 @@ class ApiClient:
             params["date"] = date
         return self._make_request("GET", "todays-matches", params)
 
-    def get_league_stats(self, season_id, max_time=None) -> dict:
+    def get_league_stats(self, season_id: int,
+                         max_time: int = None) -> dict:
         """Fetches league statistics for a given season. If max_time is
         provided, fetches stats up to that time for the given league.
 
@@ -126,7 +158,7 @@ class ApiClient:
             params["max_time"] = max_time
         return self._make_request("GET", "league-statistics", params)
 
-    def get_schedule(self, season_id, max_time=None) -> dict:
+    def get_schedule(self, season_id: int, max_time: int = None) -> dict:
         """Fetches the schedule/results for a given league season.
 
         Parameters:
@@ -149,7 +181,8 @@ class ApiClient:
             params["max_time"] = max_time
         return self._make_request("GET", "league-matches", params)
 
-    def get_league_teams(self, season_id, stats=False, max_time=None) -> dict:
+    def get_league_teams(self, season_id: int, stats: bool = False,
+                         max_time: int = None) -> dict:
         """Fetches the teams for a given league season. Offers detailed stats
         if requested.
 
@@ -176,7 +209,8 @@ class ApiClient:
             params["max_time"] = max_time
         return self._make_request("GET", "league-teams", params)
 
-    def get_league_players(self, season_id, max_time=None) -> dict:
+    def get_league_players(self, season_id: int,
+                           max_time: int = None) -> dict:
         """Fetches the players for a given league season.
 
         Parameters:
@@ -207,7 +241,8 @@ class ApiClient:
                     res["data"].extend(next_page["data"])
         return res
 
-    def get_league_referees(self, season_id, max_time=None) -> dict:
+    def get_league_referees(self, season_id: int, 
+                            max_time: int = None) -> dict:
         """Fetches the referees for a given league season.
 
         Parameters:
@@ -229,7 +264,7 @@ class ApiClient:
             params["max_time"] = max_time
         return self._make_request("GET", "league-referees", params)
 
-    def get_team_data(self, team_id) -> dict:
+    def get_team_data(self, team_id: int) -> dict:
         """Fetches detailed data for a given team.
 
         Parameters:
@@ -244,7 +279,7 @@ class ApiClient:
         }
         return self._make_request("GET", "team", params)
 
-    def get_team_recent_form(self, team_id) -> dict:
+    def get_team_recent_form(self, team_id: int) -> dict:
         """Fetches the last 5, 6, and 10 match stats for a given team. Will
         return all 3 stats with single call.
 
@@ -261,7 +296,7 @@ class ApiClient:
         }
         return self._make_request("GET", "lastx", params)
 
-    def get_match_details(self, match_id) -> dict:
+    def get_match_details(self, match_id: int) -> dict:
         """Fetches detailed data and trends for a single match. Includes
         general stats, H2H, and odds data.
 
@@ -278,7 +313,7 @@ class ApiClient:
         }
         return self._make_request("GET", "match", params)
 
-    def get_league_table(self, season_id, max_time=None) -> dict:
+    def get_league_table(self, season_id: int, max_time: int = None) -> dict:
         """Fetches the league table for a given league season.
 
         Parameters:
@@ -300,7 +335,7 @@ class ApiClient:
             params["max_time"] = max_time
         return self._make_request("GET", "league-tables", params)
 
-    def get_player_stats(self, player_id) -> dict:
+    def get_player_stats(self, player_id: int) -> dict:
         """Fetches detailed stats for a given player across all seasons and
         leagues.
 
@@ -317,7 +352,7 @@ class ApiClient:
         }
         return self._make_request("GET", "player-stats", params)
 
-    def get_referee_stats(self, referee_id) -> dict:
+    def get_referee_stats(self, referee_id: int) -> dict:
         """Fetches detailed stats for a given referee across all seasons and
         leagues.
 

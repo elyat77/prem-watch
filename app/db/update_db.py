@@ -92,33 +92,50 @@ def todays_fixtures(client: ApiClient, loader: SQLiteLoader):
 def main():
     """Main function to parse arguments and run updates."""
     parser = argparse.ArgumentParser(description="Update the football data SQLite database from an API.")
+    # --- Positional Argument ---
     parser.add_argument("db_path", type=str, help="Path to the SQLite database file (e.g., footystats.db)")
-    parser.add_argument("--all", action="store_true", help="Run all update tasks.")
-    parser.add_argument("--leagues", action="store_true", help="Update the leagues table.")
-    parser.add_argument("--countries", action="store_true", help="Update the countries table.")
-    parser.add_argument("--fixtures", action="store_true", help="Update today's fixtures.")
-    # Add new arguments here when additional functions are implemented
     
+    # --- Task Arguments (Flags to enable a task) ---
+    parser.add_argument("--all", action="store_true", help="Run all general update tasks (those not requiring specific IDs).")
+    parser.add_argument("--leagues", action="store_true", help="Update the leagues table. Optional: --country_id")
+    parser.add_argument("--countries", action="store_true", help="Update the countries table.")
+    parser.add_argument("--days_matches", action="store_true", help="Update the matches table with games from a given day (gets today's by default). Optional: --date")
+    parser.add_argument("--league_stats", action="store_true", help="Update the league_stats table (requires --season_id). Optional: --max_time")
+    #TODO: CONTINUE HERE
+    parser.add_argument("--players", action="store_true", help="Update the players table (requires --team_id).")
+
+    # --- Parameter Arguments (Values for the tasks) ---
+    parser.add_argument("--date", type=str, help="Specify a date in YYYY-MM-DD format.")
+    parser.add_argument("--country_id", type=int, help="Specify the country_id for fetching leagues.")
+    parser.add_argument("--season_id", type=int, help="Specify the season for fetching league-specific data.")
+    parser.add_argument("--team_id", type=int, help="Specify the id of the team to fetch data.")
+    parser.add_argument("--match_id", type=int, help="Specify the id of the match to fetch data for.")
+    parser.add_argument("--player_id", type=int, help="Specify the player_id for fetching player stats.")
+    parser.add_argument("--referee_id", type=int, help="Specify the referee_id for fetching referee stats.")
+    parser.add_argument("--chosen_only", type=bool, help="When fetching leagues, if True, only fetch leagues marked as chosen.")
+    parser.add_argument("--max_time", type=int, help="Specify the ending point for fetched data in unix format.")
+    parser.add_argument("--stats", type=bool, help="When fetching teams, if True, include detailed stats.")
+
     args = parser.parse_args()
 
-    # Load environment variables (for API_KEY)
     load_dotenv()
     api_key = os.getenv("API_KEY")
     if not api_key:
         print("Error: API_KEY not found in .env file.")
         return
 
-    # Construct absolute path for the database file
     db_file_path = os.path.abspath(args.db_path)
     print(f"Using database file: {db_file_path}")
 
-    # Initialize API client and database loader
     api_client = ApiClient(api_key)
     db_loader = SQLiteLoader(db_file_path)
 
     try:
-        run_all = args.all or not any([args.leagues, args.countries, args.fixtures])
+        # Determine if any specific task was requested. If not, --all is implied.
+        tasks_requested = any([args.leagues, args.countries, args.fixtures, args.players])
+        run_all = args.all or not tasks_requested
 
+        # --- Execute Tasks ---
         if run_all or args.leagues:
             update_leagues(api_client, db_loader)
         
@@ -126,12 +143,17 @@ def main():
             update_countries(api_client, db_loader)
             
         if run_all or args.fixtures:
-            update_fixtures(api_client, db_loader)
-            
-        # Add other update function calls here...
+            # Pass the date argument. It will be None if the user didn't provide it.
+            update_fixtures(api_client, db_loader, date=args.date)
 
+        if args.players:
+            # This task requires a specific parameter, so it's not run with --all.
+            if args.team_id:
+                update_players(api_client, db_loader, team_id=args.team_id)
+            else:
+                print("\nError: --team_id must be provided when using the --players flag.")
+            
     finally:
-        # Ensure the database connection is always closed
         db_loader.close()
         print(f"\nDatabase operations complete.")
 
