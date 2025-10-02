@@ -97,12 +97,22 @@ def main():
     
     # --- Task Arguments (Flags to enable a task) ---
     parser.add_argument("--all", action="store_true", help="Run all general update tasks (those not requiring specific IDs).")
-    parser.add_argument("--leagues", action="store_true", help="Update the leagues table. Optional: --country_id")
+    parser.add_argument("--leagues", action="store_true", help="Update the leagues table. Optional: --country_id, --chosen_only")
     parser.add_argument("--countries", action="store_true", help="Update the countries table.")
-    parser.add_argument("--days_matches", action="store_true", help="Update the matches table with games from a given day (gets today's by default). Optional: --date")
-    parser.add_argument("--league_stats", action="store_true", help="Update the league_stats table (requires --season_id). Optional: --max_time")
-    #TODO: CONTINUE HERE
-    parser.add_argument("--players", action="store_true", help="Update the players table (requires --team_id).")
+    parser.add_argument("--matches", action="store_true", help="Update the matches table with games from a given day (gets today's by default). Optional: --date.")
+    parser.add_argument("--league_stats", action="store_true", help="Update the league_stats table. Requires: --season_id. Optional: --max_time.")
+    parser.add_argument("--schedules", action="store_true", help="Update the schedules table. Requires: --season_id. Optional: --max_time.")
+    parser.add_argument("--teams", action="store_true", help="Update the teams table. Requires: --season_id. Optional: --stats, --max_time.")
+    parser.add_argument("--players", action="store_true", help="Update the players table. Requires: --season_id. Optional: --max_time.")
+    parser.add_argument("--referees", action="store_true", help="Update the referees table. Requires: --season_id. Optional: --max_time.")
+    parser.add_argument("--team_data", action="store_true", help="Update detailed data for a specific team. Requires: --team_id.")
+    parser.add_argument("--team_form", action="store_true", help="Update recent form data for a specific team. Requires: --team_id.")
+    parser.add_argument("--match_details", action="store_true", help="Update detailed data for a specific match. Requires: --match_id.")
+    parser.add_argument("--league_table", action="store_true", help="Update the league_table table. Requires: --season_id. Optional: --max_time.")
+    parser.add_argument("--player_stats", action="store_true", help="Update player statistics. Requires: --player_id.")
+    parser.add_argument("--referee_stats", action="store_true", help="Update referee statistics. Requires: --referee_id.")
+    parser.add_argument("--btts_stats", action="store_true", help="Update both teams to score statistics.")
+    parser.add_argument("--over_25_stats", action="store_true", help="Update over 2.5 goals statistics.")
 
     # --- Parameter Arguments (Values for the tasks) ---
     parser.add_argument("--date", type=str, help="Specify a date in YYYY-MM-DD format.")
