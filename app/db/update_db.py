@@ -1,13 +1,16 @@
 # update_db.py
 """Script to update the SQLite database with data from the football data API.
 
-This script creates or updates the database in the same folder as the file (default /app/db/).
+This script creates or updates the database in the same folder as the
+file (default /app/db/).
 
-Command line arguments can be used when running the script to specify which data to update.
+Command line arguments can be used when running the script to specify which
+data to update.
 
 Example usage:
     - Run all updates: python update_db.py footystats.db --all
-    - Update only leagues and countries: python update_db.py footystats.db --leagues --countries
+    - Update only leagues and countries: 
+        python update_db.py footystats.db --leagues --countries
 """
 
 import sqlite3
@@ -31,7 +34,7 @@ def update_leagues(client: ApiClient, loader: SQLiteLoader):
 
         new_leagues = []
         if isinstance(leagues_data["data"], list):
-            # The API returns seasons nested under each league, so we flatten it.
+        # The API returns seasons nested under each league, so we flatten it.
             for league in leagues_data["data"]:
                 if "season" in league:
                     for season in league["season"]:
@@ -82,7 +85,9 @@ def todays_fixtures(client: ApiClient, loader: SQLiteLoader):
 
         if isinstance(fixtures_data["data"], list):
             for fixture in fixtures_data["data"]:
-                print(f"Loading fixture ID: {fixture.get('id')} - {fixture.get('homeTeam', {}).get('name')} vs {fixture.get('awayTeam', {}).get('name')}")
+                print(f"Loading fixture ID: {fixture.get('id')} - \
+                      {fixture.get('homeTeam', {}).get('name')} vs \
+                        {fixture.get('awayTeam', {}).get('name')}")
                 loader.insert_or_update_dict("fixtures", fixture)
         print("Fixtures update complete.")
     except Exception as e:
@@ -91,40 +96,164 @@ def todays_fixtures(client: ApiClient, loader: SQLiteLoader):
 
 def main():
     """Main function to parse arguments and run updates."""
-    parser = argparse.ArgumentParser(description="Update the football data SQLite database from an API.")
+    parser = argparse.ArgumentParser(
+        description="Update the football data SQLite database from an API."
+        )
     # --- Positional Argument ---
-    parser.add_argument("db_path", type=str, help="Path to the SQLite database file (e.g., footystats.db)")
+    parser.add_argument(
+        "db_path",
+        type=str,
+        help="Path to the SQLite database file (e.g., footystats.db)"
+        )
     
     # --- Task Arguments (Flags to enable a task) ---
-    parser.add_argument("--all", action="store_true", help="Run all general update tasks (those not requiring specific IDs).")
-    parser.add_argument("--leagues", action="store_true", help="Update the leagues table. Optional: --country_id, --chosen_only")
-    parser.add_argument("--countries", action="store_true", help="Update the countries table.")
-    parser.add_argument("--matches", action="store_true", help="Update the matches table with games from a given day (gets today's by default). Optional: --date.")
-    parser.add_argument("--league_stats", action="store_true", help="Update the league_stats table. Requires: --season_id. Optional: --max_time.")
-    parser.add_argument("--schedules", action="store_true", help="Update the schedules table. Requires: --season_id. Optional: --max_time.")
-    parser.add_argument("--teams", action="store_true", help="Update the teams table. Requires: --season_id. Optional: --stats, --max_time.")
-    parser.add_argument("--players", action="store_true", help="Update the players table. Requires: --season_id. Optional: --max_time.")
-    parser.add_argument("--referees", action="store_true", help="Update the referees table. Requires: --season_id. Optional: --max_time.")
-    parser.add_argument("--team_data", action="store_true", help="Update detailed data for a specific team. Requires: --team_id.")
-    parser.add_argument("--team_form", action="store_true", help="Update recent form data for a specific team. Requires: --team_id.")
-    parser.add_argument("--match_details", action="store_true", help="Update detailed data for a specific match. Requires: --match_id.")
-    parser.add_argument("--league_table", action="store_true", help="Update the league_table table. Requires: --season_id. Optional: --max_time.")
-    parser.add_argument("--player_stats", action="store_true", help="Update player statistics. Requires: --player_id.")
-    parser.add_argument("--referee_stats", action="store_true", help="Update referee statistics. Requires: --referee_id.")
-    parser.add_argument("--btts_stats", action="store_true", help="Update both teams to score statistics.")
-    parser.add_argument("--over_25_stats", action="store_true", help="Update over 2.5 goals statistics.")
+    parser.add_argument(
+        "--all",
+        action="store_true",
+        help="Run all general update tasks (those not requiring specific IDs)."
+        )
+    parser.add_argument(
+        "--leagues",
+        action="store_true",
+        help="Update the leagues table. Optional: --country_id, --chosen_only"
+        )
+    parser.add_argument(
+        "--countries",
+        action="store_true",
+        help="Update the countries table."
+        )
+    parser.add_argument(
+        "--matches",
+        action="store_true",
+        help="Update the matches table with games from a given day \
+            (gets today's by default). Optional: --date."
+            )
+    parser.add_argument(
+        "--league_stats",
+        action="store_true",
+        help="Update the league_stats table. Requires: --season_id. \
+            Optional: --max_time."
+            )
+    parser.add_argument(
+        "--schedules",
+        action="store_true",
+        help="Update the schedules table. Requires: --season_id. \
+            Optional: --max_time."
+        )
+    parser.add_argument(
+        "--teams",
+        action="store_true",
+        help="Update the teams table. Requires: --season_id. \
+            Optional: --stats, --max_time."
+            )
+    parser.add_argument(
+        "--players",
+        action="store_true",
+        help="Update the players table. Requires: --season_id. \
+            Optional: --max_time."
+            )
+    parser.add_argument(
+        "--referees",
+        action="store_true",
+        help="Update the referees table. Requires: --season_id. \
+            Optional: --max_time."
+            )
+    parser.add_argument(
+        "--team_data",
+        action="store_true",
+        help="Update detailed data for a specific team. Requires: --team_id."
+        )
+    parser.add_argument(
+        "--team_form",
+        action="store_true",
+        help="Update recent form data for a specific team. \
+            Requires: --team_id."
+            )
+    parser.add_argument(
+        "--match_details",
+        action="store_true",
+        help="Update detailed data for a specific match. \
+            Requires: --match_id."
+            )
+    parser.add_argument(
+        "--league_table",
+        action="store_true",
+        help="Update the league_table table. Requires: --season_id. \
+            Optional: --max_time."
+            )
+    parser.add_argument(
+        "--player_stats",
+        action="store_true",
+        help="Update player statistics. Requires: --player_id."
+        )
+    parser.add_argument(
+        "--referee_stats",
+        action="store_true",
+        help="Update referee statistics. Requires: --referee_id."
+        )
+    parser.add_argument(
+        "--btts_stats",
+        action="store_true",
+        help="Update both teams to score statistics."
+        )
+    parser.add_argument(
+        "--over_25_stats",
+        action="store_true",
+        help="Update over 2.5 goals statistics."
+        )
 
     # --- Parameter Arguments (Values for the tasks) ---
-    parser.add_argument("--date", type=str, help="Specify a date in YYYY-MM-DD format.")
-    parser.add_argument("--country_id", type=int, help="Specify the country_id for fetching leagues.")
-    parser.add_argument("--season_id", type=int, help="Specify the season for fetching league-specific data.")
-    parser.add_argument("--team_id", type=int, help="Specify the id of the team to fetch data.")
-    parser.add_argument("--match_id", type=int, help="Specify the id of the match to fetch data for.")
-    parser.add_argument("--player_id", type=int, help="Specify the player_id for fetching player stats.")
-    parser.add_argument("--referee_id", type=int, help="Specify the referee_id for fetching referee stats.")
-    parser.add_argument("--chosen_only", type=bool, help="When fetching leagues, if True, only fetch leagues marked as chosen.")
-    parser.add_argument("--max_time", type=int, help="Specify the ending point for fetched data in unix format.")
-    parser.add_argument("--stats", type=bool, help="When fetching teams, if True, include detailed stats.")
+    parser.add_argument(
+        "--date",
+        type=str,
+        help="Specify a date in YYYY-MM-DD format."
+        )
+    parser.add_argument(
+        "--country_id",
+        type=int,
+        help="Specify the country_id for fetching leagues."
+        )
+    parser.add_argument(
+        "--season_id",
+        type=int,
+        help="Specify the season for fetching league-specific data."
+        )
+    parser.add_argument(
+        "--team_id",
+        type=int,
+        help="Specify the id of the team to fetch data."
+        )
+    parser.add_argument(
+        "--match_id",
+        type=int,
+        help="Specify the id of the match to fetch data for."
+        )
+    parser.add_argument(
+        "--player_id",
+        type=int,
+        help="Specify the player_id for fetching player stats."
+        )
+    parser.add_argument(
+        "--referee_id",
+        type=int,
+        help="Specify the referee_id for fetching referee stats."
+        )
+    parser.add_argument(
+        "--chosen_only",
+        type=bool,
+        help="When fetching leagues, if True, only fetch leagues marked \
+            as chosen."
+            )
+    parser.add_argument(
+        "--max_time",
+        type=int,
+        help="Specify the ending point for fetched data in unix format."
+        )
+    parser.add_argument(
+        "--stats",
+        type=bool,
+        help="When fetching teams, if True, include detailed stats."
+        )
 
     args = parser.parse_args()
 
