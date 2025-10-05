@@ -60,6 +60,7 @@ class UpdateLeaguesTask(Task):
         print(f"Params: country_id={country_id}, chosen_only={chosen_only}")
         print("Leagues update complete.")
 
+
 class UpdateCountriesTask(Task):
     """Fetches and loads country data."""
     @classmethod
@@ -68,7 +69,7 @@ class UpdateCountriesTask(Task):
 
     def execute(self, **kwargs):
         print("\n--- Updating Countries ---")
-        print("Countries update complete.")
+
 
 class UpdateMatchesTask(Task):
     """Fetches and loads match data for a given day."""
@@ -84,6 +85,7 @@ class UpdateMatchesTask(Task):
             print("\n--- Updating Today's Matches ---")
         print("Matches update complete.")
 
+
 class UpdateLeagueStatsTask(Task):
     is_general_task = False
     @classmethod
@@ -97,6 +99,7 @@ class UpdateLeagueStatsTask(Task):
             return
         print(f"\n--- Updating League Stats for season_id: {season_id} ---")
         print("League Stats update complete.")
+
 
 class UpdateSchedulesTask(Task):
     is_general_task = False
@@ -112,6 +115,7 @@ class UpdateSchedulesTask(Task):
         print(f"\n--- Updating Schedules for season_id: {season_id} ---")
         print("Schedules update complete.")
 
+
 class UpdateTeamsTask(Task):
     is_general_task = False
     @classmethod
@@ -125,6 +129,7 @@ class UpdateTeamsTask(Task):
             return
         print(f"\n--- Updating Teams for season_id: {season_id} ---")
         print("Teams update complete.")
+
 
 class UpdatePlayersTask(Task):
     is_general_task = False
@@ -140,6 +145,7 @@ class UpdatePlayersTask(Task):
         print(f"\n--- Updating Players for season_id: {season_id} ---")
         print("Players update complete.")
 
+
 class UpdateRefereesTask(Task):
     is_general_task = False
     @classmethod
@@ -153,6 +159,7 @@ class UpdateRefereesTask(Task):
             return
         print(f"\n--- Updating Referees for season_id: {season_id} ---")
         print("Referees update complete.")
+
 
 class UpdateTeamDataTask(Task):
     is_general_task = False
@@ -168,6 +175,7 @@ class UpdateTeamDataTask(Task):
         print(f"\n--- Updating Team Data for team_id: {team_id} ---")
         print("Team Data update complete.")
 
+
 class UpdateTeamFormTask(Task):
     is_general_task = False
     @classmethod
@@ -181,6 +189,7 @@ class UpdateTeamFormTask(Task):
             return
         print(f"\n--- Updating Team Form for team_id: {team_id} ---")
         print("Team Form update complete.")
+
 
 class UpdateMatchDetailsTask(Task):
     is_general_task = False
@@ -196,6 +205,7 @@ class UpdateMatchDetailsTask(Task):
         print(f"\n--- Updating Match Details for match_id: {match_id} ---")
         print("Match Details update complete.")
 
+
 class UpdateLeagueTableTask(Task):
     is_general_task = False
     @classmethod
@@ -209,6 +219,7 @@ class UpdateLeagueTableTask(Task):
             return
         print(f"\n--- Updating League Table for season_id: {season_id} ---")
         print("League Table update complete.")
+
 
 class UpdatePlayerStatsTask(Task):
     is_general_task = False
@@ -224,6 +235,7 @@ class UpdatePlayerStatsTask(Task):
         print(f"\n--- Updating Player Stats for player_id: {player_id} ---")
         print("Player Stats update complete.")
 
+
 class UpdateRefereeStatsTask(Task):
     is_general_task = False
     @classmethod
@@ -238,6 +250,7 @@ class UpdateRefereeStatsTask(Task):
         print(f"\n--- Updating Referee Stats for referee_id: {referee_id} ---")
         print("Referee Stats update complete.")
 
+
 class UpdateBttsStatsTask(Task):
     @classmethod
     def register_arguments(cls, parser: argparse.ArgumentParser):
@@ -246,6 +259,7 @@ class UpdateBttsStatsTask(Task):
     def execute(self, **kwargs):
         print("\n--- Updating BTTS Stats ---")
         print("BTTS Stats update complete.")
+
 
 class UpdateOver25StatsTask(Task):
     @classmethod
@@ -256,6 +270,94 @@ class UpdateOver25StatsTask(Task):
         print("\n--- Updating Over 2.5 Goals Stats ---")
         print("Over 2.5 Stats update complete.")
 
+
+class ComprehensiveUpdateTask(Task):
+    """A special task that orchestrates a full, cascading database update."""
+    is_general_task = False
+
+    @classmethod
+    def register_arguments(cls, parser: argparse.ArgumentParser):
+        # This task orchestrates others and adds no arguments itself.
+        pass
+
+    def _get_ids_from_table(self, table_name: str, column_name: str) -> list:
+        """Helper to query the database and fetch a list of unique IDs."""
+        ids = []
+        try:
+            cursor = self.loader.conn.cursor()
+            # Check if table exists before querying
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name=?", (table_name,))
+            if cursor.fetchone() is None:
+                print(f"Warning: Table '{table_name}' not found for querying. Skipping dependent tasks.")
+                return []
+                
+            cursor.execute(f"SELECT DISTINCT {column_name} FROM {table_name} WHERE {column_name} IS NOT NULL")
+            results = cursor.fetchall()
+            ids = [row[0] for row in results]
+        except Exception as e:
+            print(f"Error querying {column_name} from {table_name}: {e}")
+        return ids
+
+    def execute(self, **kwargs):
+        print("\n--- Starting Comprehensive Database Update ---")
+        
+        # We need access to all other task classes to instantiate them
+        registered_tasks = kwargs.get('registered_tasks', {})
+        task_instances = {
+            name: task_class(self.client, self.loader)
+            for name, task_class in registered_tasks.items() if name != 'comprehensive_update'
+        }
+
+        def run_task(task_name, **params):
+            if task_name in task_instances:
+                task_instances[task_name].execute(**params)
+            else:
+                print(f"Warning: Orchestrator tried to run unregistered task '{task_name}'.")
+
+        # LEVEL 0: Run tasks with no dependencies
+        print("\n[LEVEL 0] Running initial tasks...")
+        run_task('countries')
+        run_task('matches') # Gets today's matches by default
+        run_task('btts_stats')
+        run_task('over_25_stats')
+
+        # LEVEL 1: Depends on Countries
+        print("\n[LEVEL 1] Updating leagues based on countries...")
+        country_ids = self._get_ids_from_table('countries', 'id')
+        for country_id in country_ids:
+            run_task('leagues', country_id=country_id)
+
+        # LEVEL 2: Depends on Leagues (which contain season_id)
+        print("\n[LEVEL 2] Updating season-dependent data...")
+        season_ids = self._get_ids_from_table('leagues', 'id')
+        season_tasks = ['league_stats', 'schedules', 'teams', 'players', 'referees', 'league_table']
+        for season_id in season_ids:
+            for task_name in season_tasks:
+                run_task(task_name, season_id=season_id)
+
+        # LEVEL 3: Depends on Teams and Matches
+        print("\n[LEVEL 3] Updating team and match details...")
+        team_ids = self._get_ids_from_table('teams', 'id')
+        for team_id in team_ids:
+            run_task('team_data', team_id=team_id)
+            run_task('team_form', team_id=team_id)
+        
+        match_ids = self._get_ids_from_table('matches', 'id')
+        for match_id in match_ids:
+            run_task('match_details', match_id=match_id)
+
+        # LEVEL 4: Depends on Players and Referees
+        print("\n[LEVEL 4] Updating player and referee stats...")
+        player_ids = self._get_ids_from_table('players', 'id')
+        for player_id in player_ids:
+            run_task('player_stats', player_id=player_id)
+            
+        referee_ids = self._get_ids_from_table('referees', 'id')
+        for referee_id in referee_ids:
+            run_task('referee_stats', referee_id=referee_id)
+
+        print("\n--- Comprehensive Update Complete ---")
+
 # --- The Main Orchestrator ---
 
 class DatabaseUpdater:
@@ -265,86 +367,63 @@ class DatabaseUpdater:
         self.client = None
         self.loader = None
         self.registered_tasks = {
-            'leagues': UpdateLeaguesTask,
-            'countries': UpdateCountriesTask,
-            'matches': UpdateMatchesTask,
-            'league_stats': UpdateLeagueStatsTask,
-            'schedules': UpdateSchedulesTask,
-            'teams': UpdateTeamsTask,
-            'players': UpdatePlayersTask,
-            'referees': UpdateRefereesTask,
-            'team_data': UpdateTeamDataTask,
-            'team_form': UpdateTeamFormTask,
-            'match_details': UpdateMatchDetailsTask,
-            'league_table': UpdateLeagueTableTask,
-            'player_stats': UpdatePlayerStatsTask,
-            'referee_stats': UpdateRefereeStatsTask,
-            'btts_stats': UpdateBttsStatsTask,
+            # Special orchestrator task
+            'comprehensive_update': ComprehensiveUpdateTask,
+            # Individual tasks
+            'leagues': UpdateLeaguesTask, 'countries': UpdateCountriesTask, 'matches': UpdateMatchesTask,
+            'league_stats': UpdateLeagueStatsTask, 'schedules': UpdateSchedulesTask, 'teams': UpdateTeamsTask,
+            'players': UpdatePlayersTask, 'referees': UpdateRefereesTask, 'team_data': UpdateTeamDataTask,
+            'team_form': UpdateTeamFormTask, 'match_details': UpdateMatchDetailsTask, 'league_table': UpdateLeagueTableTask,
+            'player_stats': UpdatePlayerStatsTask, 'referee_stats': UpdateRefereeStatsTask, 'btts_stats': UpdateBttsStatsTask,
             'over_25_stats': UpdateOver25StatsTask,
         }
         self._setup()
 
     def _setup(self):
-        """Initializes the API client and database loader."""
-        load_dotenv()
-        api_key = os.getenv("API_KEY")
-        if not api_key:
-            raise ValueError("API_KEY not found in .env file.")
-
+        load_dotenv(); api_key = os.getenv("API_KEY")
+        if not api_key: raise ValueError("API_KEY not found in .env file.")
         db_file_path = os.path.abspath(self.db_path)
         print(f"Using database file: {db_file_path}")
         self.client = ApiClient(api_key)
         self.loader = SQLiteLoader(db_file_path)
 
     def run_tasks(self, task_names: list, **kwargs):
-        """Executes a list of specified tasks with given keyword arguments."""
         print(f"\nExecuting tasks: {', '.join(task_names)}")
         try:
             for task_name in task_names:
                 if task_name not in self.registered_tasks:
-                    print(f"Warning: Task '{task_name}' is not registered. Skipping.")
-                    continue
-
+                    print(f"Warning: Task '{task_name}' is not registered. Skipping."); continue
                 task_class = self.registered_tasks[task_name]
                 task_instance = task_class(self.client, self.loader)
+                # Pass the full registry to the comprehensive task so it can create other tasks
+                if task_name == 'comprehensive_update':
+                    kwargs['registered_tasks'] = self.registered_tasks
                 task_instance.execute(**kwargs)
         finally:
-            if self.loader:
-                self.loader.close()
-            print("\nDatabase operations complete.")
-
+            if self.loader: self.loader.close(); print("\nDatabase operations complete.")
+    
     def run_from_cli(self):
-        """Parses command-line arguments and runs the specified tasks."""
         parser = self._create_parser()
         args = parser.parse_args()
 
-        tasks_to_run_names = []
         if args.all:
-            tasks_to_run_names = [name for name, cls in self.registered_tasks.items() if cls.is_general_task]
+            # --all now exclusively runs the comprehensive update orchestrator
+            tasks_to_run_names = ['comprehensive_update']
         elif args.task:
             tasks_to_run_names = args.task
         else:
-            print("No tasks specified. Use --all or --task. Use -h for help.")
-            return
+            print("No tasks specified. Use --all or --task. Use -h for help."); return
 
         cli_kwargs = vars(args)
         self.run_tasks(tasks_to_run_names, **cli_kwargs)
 
     def _create_parser(self):
-        """Creates and configures the argument parser."""
-        parser = argparse.ArgumentParser(
-            description="Update the football data SQLite database from an API.",
-            formatter_class=argparse.RawTextHelpFormatter
-        )
+        parser = argparse.ArgumentParser(description="Update the football data SQLite database from an API.", formatter_class=argparse.RawTextHelpFormatter)
         parser.add_argument("db_path", type=str, help="Path to the SQLite database file.")
-        parser.add_argument(
-            "--task", type=str, nargs='+', choices=list(self.registered_tasks.keys()),
-            metavar='TASK', help="Specify one or more tasks to run."
-        )
-        general_tasks = [name for name, cls in self.registered_tasks.items() if cls.is_general_task]
-        parser.add_argument("--all", action="store_true", help=f"Run all general tasks: {', '.join(general_tasks)}")
+        parser.add_argument("--task", type=str, nargs='+', choices=list(self.registered_tasks.keys()), metavar='TASK', help="Specify one or more tasks to run.")
+        parser.add_argument("--all", action="store_true", help="Run a comprehensive, cascading update of the entire database.")
 
-        # --- Register Shared Arguments to avoid conflicts and repetition ---
+        # Shared arguments
         parser.add_argument("--season_id", type=int, help="ID for a specific season.")
         parser.add_argument("--max_time", type=int, help="Unix timestamp for ending point of data.")
         parser.add_argument("--team_id", type=int, help="ID for a specific team.")
@@ -356,10 +435,9 @@ class DatabaseUpdater:
         parser.add_argument("--country_id", type=int, help="Filter leagues by a specific country ID.")
         parser.add_argument("--chosen_only", action="store_true", help="Fetch only leagues marked as chosen.")
 
-        # Let each task register its own unique arguments
+        # Task-specific arguments
         for task_class in self.registered_tasks.values():
             task_class.register_arguments(parser)
-
         return parser
 
 # --- Script Entry Point ---
@@ -367,6 +445,5 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument("db_path", nargs='?', default="footystats.db", help="Path to the SQLite database file.")
     known_args, _ = parser.parse_known_args()
-
     updater = DatabaseUpdater(db_path=known_args.db_path)
     updater.run_from_cli()
