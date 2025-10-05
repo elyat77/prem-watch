@@ -6,3 +6,4 @@ instance/
 migrations/
 *.sqlite3
 test.py
+.DS_Store

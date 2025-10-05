@@ -3,7 +3,8 @@
 An object-oriented script to update the SQLite database with data from the 
 football data API.
 
-This script can be run from the command line or imported and used programmatically.
+This script can be run from the command line or imported and used
+programmatically.
 """
 
 import os
@@ -17,7 +18,7 @@ from db.db_loader import SQLiteLoader
 
 class Task(ABC):
     """Abstract base class for all update tasks."""
-    is_general_task = True 
+    is_general_task = True
 
     def __init__(self, client: ApiClient, loader: SQLiteLoader):
         self.client = client
@@ -40,8 +41,16 @@ class UpdateLeaguesTask(Task):
     """Fetches and loads league and season data."""
     @classmethod
     def register_arguments(cls, parser: argparse.ArgumentParser):
-        parser.add_argument("--country_id", type=int, help="[Leagues] Filter leagues by a specific country ID.")
-        parser.add_argument("--chosen_only", action="store_true", help="[Leagues] Fetch only leagues marked as chosen.")
+        parser.add_argument(
+            "--country_id",
+            type=int,
+            help="[Leagues] Filter leagues by a specific country ID."
+            )
+        parser.add_argument(
+            "--chosen_only",
+            action="store_true",
+            help="[Leagues] Fetch only leagues marked as chosen."
+            )
 
     def execute(self, **kwargs):
         print("\n--- Updating Leagues ---")
@@ -281,7 +290,7 @@ class DatabaseUpdater:
         api_key = os.getenv("API_KEY")
         if not api_key:
             raise ValueError("API_KEY not found in .env file.")
-        
+
         db_file_path = os.path.abspath(self.db_path)
         print(f"Using database file: {db_file_path}")
         self.client = ApiClient(api_key)
@@ -295,7 +304,7 @@ class DatabaseUpdater:
                 if task_name not in self.registered_tasks:
                     print(f"Warning: Task '{task_name}' is not registered. Skipping.")
                     continue
-                
+
                 task_class = self.registered_tasks[task_name]
                 task_instance = task_class(self.client, self.loader)
                 task_instance.execute(**kwargs)
@@ -303,7 +312,7 @@ class DatabaseUpdater:
             if self.loader:
                 self.loader.close()
             print("\nDatabase operations complete.")
-    
+
     def run_from_cli(self):
         """Parses command-line arguments and runs the specified tasks."""
         parser = self._create_parser()
@@ -342,11 +351,15 @@ class DatabaseUpdater:
         parser.add_argument("--match_id", type=int, help="ID for a specific match.")
         parser.add_argument("--player_id", type=int, help="ID for a specific player.")
         parser.add_argument("--referee_id", type=int, help="ID for a specific referee.")
+        parser.add_argument("--date", type=str, help="Date in YYYY-MM-DD format.")
+        parser.add_argument("--stats", action="store_true", help="Include detailed stats when fetching teams.")
+        parser.add_argument("--country_id", type=int, help="Filter leagues by a specific country ID.")
+        parser.add_argument("--chosen_only", action="store_true", help="Fetch only leagues marked as chosen.")
 
         # Let each task register its own unique arguments
         for task_class in self.registered_tasks.values():
             task_class.register_arguments(parser)
-            
+
         return parser
 
 # --- Script Entry Point ---
