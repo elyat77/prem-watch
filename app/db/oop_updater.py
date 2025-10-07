@@ -35,12 +35,15 @@ class Task(ABC):
         """The main logic of the task."""
         pass
 
+
 # --- Concrete Task Implementations ---
 
 class UpdateLeaguesTask(Task):
     """Fetches and loads league and season data."""
+    is_general_task = False
+
     @classmethod
-    def register_arguments(cls, parser: argparse.ArgumentParser):
+    def register_arguments(cls, parser: argparse.ArgumentParser) -> None:
         parser.add_argument(
             "--country_id",
             type=int,
@@ -52,12 +55,32 @@ class UpdateLeaguesTask(Task):
             help="[Leagues] Fetch only leagues marked as chosen."
             )
 
-    def execute(self, **kwargs):
-        print("\n--- Updating Leagues ---")
-        # Placeholder for your actual API call and data handling
+    def execute(self, **kwargs) -> None:
         country_id = kwargs.get('country_id')
         chosen_only = kwargs.get('chosen_only')
-        print(f"Params: country_id={country_id}, chosen_only={chosen_only}")
+
+        print("\n--- Updating Leagues ---")
+        # Leagues data structure is a bit nested; we need to flatten it
+        leagues_dict = self.client.get_leagues(country_id=country_id, chosen_only=chosen_only)
+        if not leagues_dict or "data" not in leagues_dict:
+            print("Could not fetch leagues data or data is empty.")
+            return
+        cleaned_leagues = []
+        for league in leagues_dict["data"]:
+                if "season" in league:
+                    for season in league["season"]:
+                        league_record = {
+                            "id": season.get("id"),
+                            "name": league.get("name"),
+                            "season": season.get("year"),
+                            "country": league.get("country"),
+                            "league_name": league.get("league_name"),
+                            "image": league.get("image")
+                        }
+                        cleaned_leagues.append(league_record)
+        self.loader.ensure_table_and_columns('leagues', cleaned_leagues[0] if cleaned_leagues else {})
+        for league in cleaned_leagues:
+            self.loader.insert_or_update_dict('leagues', league)
         print("Leagues update complete.")
 
 
@@ -69,6 +92,10 @@ class UpdateCountriesTask(Task):
 
     def execute(self, **kwargs):
         print("\n--- Updating Countries ---")
+        countries_dict = self.client.get_countries()
+        self.loader.ensure_table_and_columns('countries', countries_dict)
+        self.loader.insert_or_update_dict('countries', countries_dict)
+        print("Countries update complete.")
 
 
 class UpdateMatchesTask(Task):
@@ -81,8 +108,12 @@ class UpdateMatchesTask(Task):
         date = kwargs.get('date')
         if date:
             print(f"\n--- Updating Matches for date: {date} ---")
+            matches_dict = self.client.get_matches(date=date)
         else:
             print("\n--- Updating Today's Matches ---")
+            matches_dict = self.client.get_matches()
+        self.loader.ensure_table_and_columns('matches', matches_dict)
+        self.loader.insert_or_update_dict('matches', matches_dict)
         print("Matches update complete.")
 
 
@@ -90,14 +121,18 @@ class UpdateLeagueStatsTask(Task):
     is_general_task = False
     @classmethod
     def register_arguments(cls, parser: argparse.ArgumentParser):
-        pass # Args registered by other tasks
+        pass # Shared args --season_id & --max_time already registered
 
     def execute(self, **kwargs):
         season_id = kwargs.get('season_id')
+        max_time = kwargs.get('max_time')
         if not season_id:
             print("\nError: --season_id is required for the 'league_stats' task.")
             return
         print(f"\n--- Updating League Stats for season_id: {season_id} ---")
+        league_stats_dict = self.client.get_league_stats(season_id=season_id, max_time=max_time)
+        self.loader.ensure_table_and_columns('league_stats', league_stats_dict)
+        self.loader.insert_or_update_dict('league_stats', league_stats_dict)
         print("League Stats update complete.")
 
 
@@ -112,6 +147,9 @@ class UpdateSchedulesTask(Task):
         if not season_id:
             print("\nError: --season_id is required for the 'schedules' task.")
             return
+        schedules_dict = self.client.get_schedules(season_id=season_id)
+        self.loader.ensure_table_and_columns('schedules', schedules_dict)
+        self.loader.insert_or_update_dict('schedules', schedules_dict)
         print(f"\n--- Updating Schedules for season_id: {season_id} ---")
         print("Schedules update complete.")
 
@@ -430,10 +468,6 @@ class DatabaseUpdater:
         parser.add_argument("--match_id", type=int, help="ID for a specific match.")
         parser.add_argument("--player_id", type=int, help="ID for a specific player.")
         parser.add_argument("--referee_id", type=int, help="ID for a specific referee.")
-        parser.add_argument("--date", type=str, help="Date in YYYY-MM-DD format.")
-        parser.add_argument("--stats", action="store_true", help="Include detailed stats when fetching teams.")
-        parser.add_argument("--country_id", type=int, help="Filter leagues by a specific country ID.")
-        parser.add_argument("--chosen_only", action="store_true", help="Fetch only leagues marked as chosen.")
 
         # Task-specific arguments
         for task_class in self.registered_tasks.values():
