@@ -61,12 +61,13 @@ class UpdateLeaguesTask(Task):
 
         print("\n--- Updating Leagues ---")
         # Leagues data structure is a bit nested; we need to flatten it
-        leagues_dict = self.client.get_leagues(country_id=country_id, chosen_only=chosen_only)
-        if not leagues_dict or "data" not in leagues_dict:
+        leagues_data = self.client.get_leagues(country_id=country_id, chosen_only=chosen_only)
+        if not leagues_data or "data" not in leagues_data:
             print("Could not fetch leagues data or data is empty.")
             return
+        leagues_data = leagues_data.get("data")
         cleaned_leagues = []
-        for league in leagues_dict["data"]:
+        for league in leagues_data:
                 if "season" in league:
                     for season in league["season"]:
                         league_record = {
@@ -91,10 +92,15 @@ class UpdateCountriesTask(Task):
         pass
 
     def execute(self, **kwargs):
+        countries_data = self.client.get_countries()
+        if not countries_data or "data" not in countries_data:
+            print("Could not fetch countries data or data is empty.")
+            return
         print("\n--- Updating Countries ---")
-        countries_dict = self.client.get_countries()
-        self.loader.ensure_table_and_columns('countries', countries_dict)
-        self.loader.insert_or_update_dict('countries', countries_dict)
+        countries_data = countries_data.get("data")
+        self.loader.ensure_table_and_columns('countries', countries_data[0] if countries_data else {})
+        for country in countries_data:
+            self.loader.insert_or_update_dict('countries', country)
         print("Countries update complete.")
 
 
@@ -108,12 +114,17 @@ class UpdateMatchesTask(Task):
         date = kwargs.get('date')
         if date:
             print(f"\n--- Updating Matches for date: {date} ---")
-            matches_dict = self.client.get_matches(date=date)
+            matches_data = self.client.get_matches(date=date)
         else:
             print("\n--- Updating Today's Matches ---")
-            matches_dict = self.client.get_matches()
-        self.loader.ensure_table_and_columns('matches', matches_dict)
-        self.loader.insert_or_update_dict('matches', matches_dict)
+            matches_data = self.client.get_matches()
+        if not matches_data or "data" not in matches_data:
+            print("Could not fetch matches data or data is empty.")
+            return
+        matches_data = matches_data.get("data")
+        self.loader.ensure_table_and_columns('matches', matches_data[0] if matches_data else {})
+        for match in matches_data:
+            self.loader.insert_or_update_dict('matches', match)
         print("Matches update complete.")
 
 
@@ -130,9 +141,14 @@ class UpdateLeagueStatsTask(Task):
             print("\nError: --season_id is required for the 'league_stats' task.")
             return
         print(f"\n--- Updating League Stats for season_id: {season_id} ---")
-        league_stats_dict = self.client.get_league_stats(season_id=season_id, max_time=max_time)
-        self.loader.ensure_table_and_columns('league_stats', league_stats_dict)
-        self.loader.insert_or_update_dict('league_stats', league_stats_dict)
+        league_stats_data = self.client.get_league_stats(season_id=season_id, max_time=max_time)
+        if not league_stats_data or "data" not in league_stats_data:
+            print("Could not fetch league stats data or data is empty.")
+            return
+        league_stats_data = league_stats_data.get("data")
+        self.loader.ensure_table_and_columns('league_stats', league_stats_data[0] if league_stats_data else {})
+        for league_stats in league_stats_data:
+            self.loader.insert_or_update_dict('league_stats', league_stats)
         print("League Stats update complete.")
 
 
@@ -144,13 +160,19 @@ class UpdateSchedulesTask(Task):
 
     def execute(self, **kwargs):
         season_id = kwargs.get('season_id')
+        max_time = kwargs.get('max_time')
         if not season_id:
             print("\nError: --season_id is required for the 'schedules' task.")
             return
-        schedules_dict = self.client.get_schedules(season_id=season_id)
-        self.loader.ensure_table_and_columns('schedules', schedules_dict)
-        self.loader.insert_or_update_dict('schedules', schedules_dict)
         print(f"\n--- Updating Schedules for season_id: {season_id} ---")
+        schedules_data = self.client.get_schedule(season_id=season_id, max_time=max_time)
+        if not schedules_data or "data" not in schedules_data:
+            print("Could not fetch schedules data or data is empty.")
+            return
+        schedules_data = schedules_data.get("data")
+        self.loader.ensure_table_and_columns('matches', schedules_data[0] if schedules_data else {})
+        for schedule in schedules_data:
+            self.loader.insert_or_update_dict('matches', schedule)
         print("Schedules update complete.")
 
 
@@ -162,10 +184,33 @@ class UpdateTeamsTask(Task):
 
     def execute(self, **kwargs):
         season_id = kwargs.get('season_id')
+        stats = kwargs.get('stats')
+        max_time = kwargs.get('max_time')
+
         if not season_id:
             print("\nError: --season_id is required for the 'teams' task.")
             return
+
+        teams_data = self.client.get_league_teams(season_id=season_id, stats=stats, max_time=max_time)
+        if not teams_data or "data" not in teams_data:
+            print("Could not fetch teams data or data is empty.")
+            return
+        teams_data = teams_data.get("data")
         print(f"\n--- Updating Teams for season_id: {season_id} ---")
+        # If stats is selected, teams data contains nested dict which is a problem for flat table
+        cleaned_teams = []
+        for team in teams_data:
+            team_record = team.copy()
+            if stats and "stats" in team_record:
+                stats_data = team_record.pop("stats")
+                for key, value in stats_data.items():
+                    team_record[f"stats_{key}"] = value
+            cleaned_teams.append(team_record)
+
+        self.loader.ensure_table_and_columns('teams', cleaned_teams[0] if cleaned_teams else {})
+        for team in cleaned_teams:
+            self.loader.insert_or_update_dict('teams', team)
+
         print("Teams update complete.")
 
 
@@ -177,10 +222,19 @@ class UpdatePlayersTask(Task):
 
     def execute(self, **kwargs):
         season_id = kwargs.get('season_id')
+        max_time = kwargs.get('max_time')
         if not season_id:
             print("\nError: --season_id is required for the 'players' task.")
             return
         print(f"\n--- Updating Players for season_id: {season_id} ---")
+        players_data = self.client.get_league_players(season_id=season_id, max_time=max_time)
+        if not players_data or "data" not in players_data:
+            print("Could not fetch players data or data is empty.")
+            return
+        players_data = players_data.get("data")
+        self.loader.ensure_table_and_columns('players', players_data[0] if players_data else {})
+        for player in players_data:
+            self.loader.insert_or_update_dict('players', player)
         print("Players update complete.")
 
 
@@ -196,6 +250,14 @@ class UpdateRefereesTask(Task):
             print("\nError: --season_id is required for the 'referees' task.")
             return
         print(f"\n--- Updating Referees for season_id: {season_id} ---")
+        referees_data = self.client.get_league_referees(season_id=season_id)
+        if not referees_data or "data" not in referees_data:
+            print("Could not fetch referees data or data is empty.")
+            return
+        referees_data = referees_data.get("data")
+        self.loader.ensure_table_and_columns('referees', referees_data[0] if referees_data else {})
+        for referee in referees_data:
+            self.loader.insert_or_update_dict('referees', referee)
         print("Referees update complete.")
 
 
@@ -206,12 +268,14 @@ class UpdateTeamDataTask(Task):
         pass
 
     def execute(self, **kwargs):
-        team_id = kwargs.get('team_id')
-        if not team_id:
-            print("\nError: --team_id is required for the 'team_data' task.")
-            return
-        print(f"\n--- Updating Team Data for team_id: {team_id} ---")
-        print("Team Data update complete.")
+        # team_id = kwargs.get('team_id')
+        # if not team_id:
+        #     print("\nError: --team_id is required for the 'team_data' task.")
+        #     return
+        # print(f"\n--- Updating Team Data for team_id: {team_id} ---")
+        # print("Team Data update complete.")
+        print("\n--- Use league teams task to update team data ---")
+        return
 
 
 class UpdateTeamFormTask(Task):
@@ -221,12 +285,14 @@ class UpdateTeamFormTask(Task):
         pass
 
     def execute(self, **kwargs):
-        team_id = kwargs.get('team_id')
-        if not team_id:
-            print("\nError: --team_id is required for the 'team_form' task.")
-            return
-        print(f"\n--- Updating Team Form for team_id: {team_id} ---")
-        print("Team Form update complete.")
+        # team_id = kwargs.get('team_id')
+        # if not team_id:
+        #     print("\nError: --team_id is required for the 'team_form' task.")
+        #     return
+        # print(f"\n--- Updating Team Form for team_id: {team_id} ---")
+        # print("Team Form update complete.")
+        print("\n--- Use league teams task to update team form ---")
+        return
 
 
 class UpdateMatchDetailsTask(Task):
@@ -241,6 +307,14 @@ class UpdateMatchDetailsTask(Task):
             print("\nError: --match_id is required for the 'match_details' task.")
             return
         print(f"\n--- Updating Match Details for match_id: {match_id} ---")
+        match_details_data = self.client.get_match_details(match_id=match_id)
+        if not match_details_data or "data" not in match_details_data:
+            print("Could not fetch match details data or data is empty.")
+            return
+        match_details_data = match_details_data.get("data")
+        self.loader.ensure_table_and_columns('match_details', match_details_data[0] if match_details_data else {})
+        for match_detail in match_details_data:
+            self.loader.insert_or_update_dict('match_details', match_detail)
         print("Match Details update complete.")
 
 
@@ -252,10 +326,19 @@ class UpdateLeagueTableTask(Task):
 
     def execute(self, **kwargs):
         season_id = kwargs.get('season_id')
+        max_time = kwargs.get('max_time')
         if not season_id:
             print("\nError: --season_id is required for the 'league_table' task.")
             return
         print(f"\n--- Updating League Table for season_id: {season_id} ---")
+        league_table_data = self.client.get_league_table(season_id=season_id, max_time=max_time)
+        if not league_table_data or "data" not in league_table_data:
+            print("Could not fetch league table data or data is empty.")
+            return
+        league_table_data = league_table_data.get("data")
+        self.loader.ensure_table_and_columns('league_table', league_table_data[0] if league_table_data else {})
+        for league_table in league_table_data:
+            self.loader.insert_or_update_dict('league_table', league_table)
         print("League Table update complete.")
 
 
@@ -271,6 +354,14 @@ class UpdatePlayerStatsTask(Task):
             print("\nError: --player_id is required for the 'player_stats' task.")
             return
         print(f"\n--- Updating Player Stats for player_id: {player_id} ---")
+        player_stats_data = self.client.get_player_stats(player_id=player_id)
+        if not player_stats_data or "data" not in player_stats_data:
+            print("Could not fetch player stats data or data is empty.")
+            return
+        player_stats_data = player_stats_data.get("data")
+        self.loader.ensure_table_and_columns('players', player_stats_data[0] if player_stats_data else {})
+        for player_stats in player_stats_data:
+            self.loader.insert_or_update_dict('players', player_stats)
         print("Player Stats update complete.")
 
 
@@ -286,6 +377,14 @@ class UpdateRefereeStatsTask(Task):
             print("\nError: --referee_id is required for the 'referee_stats' task.")
             return
         print(f"\n--- Updating Referee Stats for referee_id: {referee_id} ---")
+        referee_stats_data = self.client.get_referee_stats(referee_id=referee_id)
+        if not referee_stats_data or "data" not in referee_stats_data:
+            print("Could not fetch referee stats data or data is empty.")
+            return
+        referee_stats_data = referee_stats_data.get("data")
+        self.loader.ensure_table_and_columns('referees', referee_stats_data[0] if referee_stats_data else {})
+        for referee_stats in referee_stats_data:
+            self.loader.insert_or_update_dict('referees', referee_stats)
         print("Referee Stats update complete.")
 
 
@@ -296,6 +395,14 @@ class UpdateBttsStatsTask(Task):
 
     def execute(self, **kwargs):
         print("\n--- Updating BTTS Stats ---")
+        btts_data = self.client.get_btts_stats()
+        if not btts_data or "data" not in btts_data:
+            print("Could not fetch BTTS stats data or data is empty.")
+            return
+        btts_data = btts_data.get("data")
+        self.loader.ensure_table_and_columns('btts_stats', btts_data[0] if btts_data else {})
+        for btts_stats in btts_data:
+            self.loader.insert_or_update_dict('btts_stats', btts_stats)
         print("BTTS Stats update complete.")
 
 
@@ -306,6 +413,14 @@ class UpdateOver25StatsTask(Task):
 
     def execute(self, **kwargs):
         print("\n--- Updating Over 2.5 Goals Stats ---")
+        over_25_data = self.client.get_over_25_stats()
+        if not over_25_data or "data" not in over_25_data:
+            print("Could not fetch Over 2.5 stats data or data is empty.")
+            return
+        over_25_data = over_25_data.get("data")
+        self.loader.ensure_table_and_columns('over_25_stats', over_25_data[0] if over_25_data else {})
+        for over_25_stats in over_25_data:
+            self.loader.insert_or_update_dict('over_25_stats', over_25_stats)
         print("Over 2.5 Stats update complete.")
 
 
