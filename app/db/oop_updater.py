@@ -11,8 +11,8 @@ import os
 import argparse
 from abc import ABC, abstractmethod
 from dotenv import load_dotenv
-from api.api_client import ApiClient
-from db.db_loader import SQLiteLoader
+from app.api.api_client import ApiClient
+from app.db.db_loader import SQLiteLoader
 
 # --- Base Task Class (The Blueprint) ---
 
@@ -400,7 +400,8 @@ class UpdateBttsStatsTask(Task):
             print("Could not fetch BTTS stats data or data is empty.")
             return
         btts_data = btts_data.get("data")
-        self.loader.ensure_table_and_columns('btts_stats', btts_data[0] if btts_data else {})
+        # btts_data is dict not list (for some reason) so next line fails TODO: fix
+        # self.loader.ensure_table_and_columns('btts_stats', btts_data[0] if btts_data else {})
         for btts_stats in btts_data:
             self.loader.insert_or_update_dict('btts_stats', btts_stats)
         print("BTTS Stats update complete.")
@@ -418,7 +419,8 @@ class UpdateOver25StatsTask(Task):
             print("Could not fetch Over 2.5 stats data or data is empty.")
             return
         over_25_data = over_25_data.get("data")
-        self.loader.ensure_table_and_columns('over_25_stats', over_25_data[0] if over_25_data else {})
+        # over_25_data is dict not list (for some reason) so next line fails TODO: fix
+        # self.loader.ensure_table_and_columns('over_25_stats', over_25_data[0] if over_25_data else {})
         for over_25_stats in over_25_data:
             self.loader.insert_or_update_dict('over_25_stats', over_25_stats)
         print("Over 2.5 Stats update complete.")
@@ -470,15 +472,17 @@ class ComprehensiveUpdateTask(Task):
         # LEVEL 0: Run tasks with no dependencies
         print("\n[LEVEL 0] Running initial tasks...")
         run_task('countries')
-        run_task('matches') # Gets today's matches by default
-        run_task('btts_stats')
-        run_task('over_25_stats')
+        # No need to run matches here, they will be fetched as part of schedules TODO: remove
+        # run_task('matches') # Gets today's matches by default
+        # Data returned by following tasks is different TODO: fix
+        # run_task('btts_stats')
+        # run_task('over_25_stats')
 
         # LEVEL 1: Depends on Countries
         print("\n[LEVEL 1] Updating leagues based on countries...")
         country_ids = self._get_ids_from_table('countries', 'id')
         for country_id in country_ids:
-            run_task('leagues', country_id=country_id)
+            run_task('leagues', country_id=country_id, chosen_only=False)
 
         # LEVEL 2: Depends on Leagues (which contain season_id)
         print("\n[LEVEL 2] Updating season-dependent data...")
@@ -486,7 +490,7 @@ class ComprehensiveUpdateTask(Task):
         season_tasks = ['league_stats', 'schedules', 'teams', 'players', 'referees', 'league_table']
         for season_id in season_ids:
             for task_name in season_tasks:
-                run_task(task_name, season_id=season_id)
+                run_task(task_name, season_id=season_id, stats=True) # Stats=True should work, other funcs should ignore it
 
         # LEVEL 3: Depends on Teams and Matches
         print("\n[LEVEL 3] Updating team and match details...")
