@@ -1,6 +1,11 @@
 # api_client.py
-import requests
+"""
+Module for interacting with the football data API.
+Provides a class `ApiClient` with methods to fetch various football-related
+data such as leagues, matches, teams, players, and statistics.
+"""
 import time
+import requests
 
 
 class ApiClient:
@@ -241,7 +246,7 @@ class ApiClient:
                     res["data"].extend(next_page["data"])
         return res
 
-    def get_league_referees(self, season_id: int, 
+    def get_league_referees(self, season_id: int,
                             max_time: int = None) -> dict:
         """Fetches the referees for a given league season.
 
